@@ -1,0 +1,333 @@
+Aplicar Identity 
+   1. Crear un proyecto c# net core 8 ASP NET CORE MVC.
+   2. Dentro de la solución crear otro proyecto como biblioteca de claseses que se llame Com.Aplication y luego crea otro Proyecto que se llame Com.DataRespos
+   3. Instalar Nuggets.
+        3.1  Sobre el proyecto de  Com.DataRespos instalar  las versiones 8.0
+		       3.1.1  Microsoft.EntityFrameworkCore.SqlServer
+		       3.1.2  Microsoft.EntityFrameworkCore.Design y Microsoft.EntityFrameworkCore.Tools
+		       3.1.3  Microsoft.AspNetCore.Identity.EntityFrameworkCore
+			   3.1.4  Microsoft.Extensions.Configuration
+			   3.1.5  Microsoft.Extensions.Configuration.FileExtensions
+			   3.1.5  Microsoft.Extensions.Configuration.Json
+			   
+		3.2 Sobre el proyecto web instslar versiones 8
+		       3.2.1  Microsoft.AspNetCore.Identity.UI
+			   3.2.2  Microsoft.EntityFrameworkCore.Design
+			   
+			   
+   4. Crear db context en carpeta data dentro del proyecto de biblioteca de clases , OJO DAR CLICK DERECHO AL PROYECTO Y AGREGAR REFERENCIA AL PROYECTO WEB
+      Luego crear un carpeta Entienes, otra carpeta data , otra carpeta repositorio y otra carpeta Interfaces.
+	 
+	 4.2  Crear Una carpeta Entities y dentro crear un clase llamda 
+
+		       using Microsoft.AspNetCore.Identity;
+
+                namespace com.capa.Infrastructure.Entities
+                    {
+                   public class ApplicationUser : IdentityUser
+                      {
+                       // Agregar propiedades personalizadas si es necesario
+                        public string NombreCompleto { get; set; }
+                      }
+                    }
+
+	  
+	  
+	       
+	    4.1 Dentro del proyecto Com.DataRepos se deben crear el DB context para identity y el DB context para el resto de tablas del proyecto.
+
+
+             DB CONTEXT SOLO PARA IDENTITY(LOGIN)
+
+                       using Com.DataRepos.Project.Entities;
+                       using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+                       using Microsoft.EntityFrameworkCore;
+                       using System;
+                       using System.Collections.Generic;
+                       using System.Linq;
+                       using System.Text;
+                       using System.Threading.Tasks;
+
+                       namespace Com.DataRepos.Project.Data
+                       {
+                           public class DB_ContextIdentity : IdentityDbContext<ApplicationUser>
+                           {
+                               public DB_ContextIdentity(DbContextOptions<DB_ContextIdentity> options)
+                                   : base(options)
+                                 {
+                                 }
+                              }
+                         }
+
+
+
+              DB CONTEXT GLOBAL RESTO DE TABLAS.
+
+                       using System;
+                       using System.Collections.Generic;
+                       using System.Linq;
+                       using System.Reflection.Emit;
+                       using System.Text;
+                       using System.Threading.Tasks;
+                       using Com.DataRepos.Project.Entities;
+                       using Microsoft.EntityFrameworkCore;
+
+                       namespace Com.DataRepos.Project.Data
+                       {
+                           public partial class DB_Context : DbContext
+                           {
+                               public DB_Context(DbContextOptions<DB_Context> options) : base(options)
+                               {
+                               }
+
+                               public DbSet<Menu> Menus { get; set; }
+
+                               protected override void OnModelCreating(ModelBuilder modelBuilder)
+                               {
+                                   modelBuilder.Entity<Menu>(entity =>
+                                   {
+                                       entity.ToTable("Menus");
+
+                                       entity.HasKey(e => e.Id);
+
+                                       entity.Property(e => e.DescripcionMenu)
+                                             .IsRequired()
+                                             .HasMaxLength(200);
+
+                                       entity.Property(e => e.Attach)
+                                             .HasMaxLength(500)
+                                            .IsRequired(false);
+
+                                       entity.Property(e => e.RolesUsers)
+                                            .HasMaxLength(500)
+                                           .IsRequired(false);
+
+                                       entity.HasOne<Menu>()
+                                             .WithMany()
+                                             .HasForeignKey(e => e.IdPadre)
+                                             .OnDelete(DeleteBehavior.Restrict); // importante para evitar cascadas
+
+                                          //entity.HasData(
+                                          //    new Menu { Id = 1, DescripcionMenu = "Administracion", IdPadre = null, Attach = "" },
+                                          //    new Menu { Id = 2, DescripcionMenu = "Roles", IdPadre = 1, Attach = "Roles/Index" },
+                                          //    new Menu { Id = 3, DescripcionMenu = "Usuarios", IdPadre = 1, Attach = "UserRoles/Index" },
+                                          //    new Menu { Id = 4, DescripcionMenu = "Menus", IdPadre = 1, Attach = "Menus/Index" }
+                                          //       );
+                                         });
+
+
+
+                                  base.OnModelCreating(modelBuilder);
+                           } 
+                       }
+                  }
+
+
+
+				   
+	    4.3 DENTRO DE DATA CREAR 
+
+		       using Microsoft.EntityFrameworkCore;
+		       using Microsoft.EntityFrameworkCore.Design;
+		       using Microsoft.Extensions.Configuration;
+		       using System;
+		       using System.Collections.Generic;
+		       using System.Linq;
+		       using System.Text;
+		       using System.Threading.Tasks;
+
+		       namespace Com.DataRepos.Project.Data
+		       {
+		           public class DB_ContextFactoryGlobal : IDesignTimeDbContextFactory<DB_Context>
+ 		          {
+ 		              public DB_Context CreateDbContext(string[] args)
+    		           {
+    		               var configuration = new ConfigurationBuilder()
+     		                  .SetBasePath(Directory.GetCurrentDirectory())
+     		                  .AddJsonFile("appsettings.json")
+     		                  .Build();
+
+  		                 var connectionString = configuration.GetConnectionString("IdentityConnection");
+
+  		                 var optionsBuilder = new DbContextOptionsBuilder<DB_Context>();
+   		                optionsBuilder.UseSqlServer(connectionString, sqlServerOptionsAction: sqlOptions =>
+   		                {
+    		                   sqlOptions.EnableRetryOnFailure();
+    		                   sqlOptions.CommandTimeout(180);
+    		               });
+
+    		               return new DB_Context(optionsBuilder.Options);
+    		              }
+  		           }
+		         }
+
+               4.5  FACTORY PARA IDENTITY  
+    		               using Microsoft.EntityFrameworkCore;
+    		               using Microsoft.EntityFrameworkCore.Design;
+    		               using Microsoft.Extensions.Configuration;
+    		               using System;
+    		               using System.Collections.Generic;
+    		               using System.Linq;
+    		               using System.Text;
+    		               using System.Threading.Tasks;
+
+    		               namespace Com.DataRepos.Project.Data
+    		               {
+    		                   public class DB_ContextIdentityFactory : IDesignTimeDbContextFactory<DB_ContextIdentity>
+     		                  {
+      		                     public DB_ContextIdentity CreateDbContext(string[] args)
+      		                     {
+       		                        // Asegúrate que la ruta sea correcta desde este proyecto hacia appsettings.json del proyecto de inicio
+       		                        var configuration = new ConfigurationBuilder()
+       		                            .SetBasePath(Directory.GetCurrentDirectory())
+       		                            .AddJsonFile("appsettings.json", optional: false)
+       		                            .Build();
+
+        		                       var optionsBuilder = new DbContextOptionsBuilder<DB_ContextIdentity>();
+         		                      var connectionString = configuration.GetConnectionString("IdentityConnection");
+
+         		                      optionsBuilder.UseSqlServer(connectionString);
+
+         		                      return new DB_ContextIdentity(optionsBuilder.Options);
+       		                       }
+       		                   }
+    		               }
+
+
+		    
+		
+			   
+	5. Registrar DB context en program  Ojo este es un ejemplo poner el nombre que tu usas. 
+	    
+			  
+         		                  
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using CapaData.Data;
+using CapaData.Entities;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Cadena de conexión
+var connectionString = builder.Configuration.GetConnectionString("IdentityConnection");
+
+// Configura DbContext para Identity
+builder.Services.AddDbContext<DB_ContextIdentity>(options =>
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure();
+    }));
+
+// Configura Identity
+builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+    options.SignIn.RequireConfirmedAccount = true)
+    .AddEntityFrameworkStores<DB_ContextIdentity>()
+    .AddDefaultUI()
+    .AddDefaultTokenProviders();
+
+// Configura otro DbContext si es necesario
+builder.Services.AddDbContextFactory<DB_Context>(options =>
+{
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure();
+        sqlOptions.CommandTimeout(180);
+    });
+});
+
+// Configura cookies
+builder.Services.ConfigureApplicationCookie(options =>
+{
+    options.LoginPath = "/Identity/Account/Login";
+    options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+});
+
+// Agregar Razor Pages y MVC
+builder.Services.AddRazorPages();
+builder.Services.AddControllersWithViews();
+
+var app = builder.Build();
+
+// Middleware
+if (app.Environment.IsDevelopment())
+{
+    app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler("/Home/Error");
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+app.MapRazorPages();
+
+app.Run();
+
+			   
+	6. Crear conexion en el APPsetting.json 
+	
+	 asegurarse de tener instaldo global     dotnet tool install --global dotnet-ef
+	
+	
+	7  Crear Migracion , cambiar comando deacuerdo a tu estructura y namespace
+	
+	    7.1  ir a la ruta en un bat que es a nivel del csproj cd C:\Projects\MB_LogistTask\MB_LogistTask
+
+        7.2  dotnet ef migrations add InitialIdentitySetup \--project "../CapaData" \ --startup-project "." \ --context DB_ContextIdentity
+ 
+		      
+			    SI HAY UN ERROR QUE FALTA UN PAQUETE INSTALAR POR LA VENTANA DE CONSOLA    ASI dotnet add package Microsoft.EntityFrameworkCore.Design  Y                     EJECUTAR 7.2
+	    
+		7.3  dotnet ef database update --project "../CapaData" --startup-project "." --context DB_ContextIdentity
+		
+		
+
+    8    GENERAR CARPETAS AREAS EN EL PROYECTO, en el bat puede ser a nivel cel csprojec
+
+      8.1  Primero, asegúrate de tener instalada la herramienta:
+            EN bash
+
+             dotnet tool install -g dotnet-aspnet-codegenerator
+
+
+      8.2  LUEGO 
+	          bash
+
+                dotnet add package Microsoft.VisualStudio.Web.CodeGeneration.Design  Microsoft.VisualStudio.Web.CodeGeneration.Design
+
+
+      8.3   LUEGO  indica tu DbContext de Identity. ABAJO 
+             bash
+
+
+         dotnet aspnet-codegenerator identity -dc CapaInfraestructura.Data.IdentityDbContextApp --userClass CapaDominio.ApplicationUser			  
+			
+			
+  CREAR MIGRACIONES APARTIR DEL DB CONTEXT PARA LAS TABLAS GENERAL DEL PROYECTO, se ejecuta en un bat a nivel del sln
+
+
+         dotnet ef migrations add AddTable_Menu --project "CapaInfraestructura" --startup-project "ProyectoIdentityMVC" --context ApplicationDbContext 
+		      
+        dotnet ef database update --project "CapaInfraestructura" --startup-project "ProyectoIdentityMVC" --context ApplicationDbContext
+
+
+
+  REMOVER Migracion
+       dotnet ef migrations remove --project "../com.DataRepos.project" --startup-project "." --context com.DataRepos.project.Data.DBContextGlobal
+		
+		
+		
+		
+		
+		
