@@ -22,14 +22,21 @@ namespace ApisWebConsult.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var clientes = await _context.Cliente
-                .FromSqlRaw("EXEC sp_ConsultarClientes") // tu SP en SQL Server
-                .ToListAsync();
+            try
+            {
+                var clientes = await _context.Cliente
+                    .FromSqlRaw("EXEC sp_ConsultarClientes")
+                    .ToListAsync();
 
-            if (clientes == null || !clientes.Any())
-                return NotFound("No se encontraron clientes.");
+                if (clientes == null || !clientes.Any())
+                    return NotFound("No se encontraron clientes.");
 
-            return Ok(clientes);
+                return Ok(clientes);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, "🔥 ERROR SQL: " + ex.Message);
+            }
         }
 
         // Endpoint: obtener cliente por cédula
