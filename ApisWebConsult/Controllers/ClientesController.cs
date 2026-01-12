@@ -7,7 +7,7 @@ using ApisWebConsult.Data;
 namespace ApisWebConsult.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/clientes")]
     [Authorize] // 🔒 protegido con JWT
     public class ClientesController : ControllerBase
     {
@@ -19,8 +19,8 @@ namespace ApisWebConsult.Controllers
         }
 
         // Endpoint: obtener todos los clientes
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
+        [HttpGet("ObtenerClientes")]
+        public async Task<IActionResult> Clientes()
         {
             try
             {
@@ -35,13 +35,13 @@ namespace ApisWebConsult.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, "🔥 ERROR SQL: " + ex.Message);
+                return StatusCode(500, " ERROR SQL: " + ex.Message);
             }
         }
 
-        // Endpoint: obtener cliente por cédula
-        [HttpGet("{cedula}")]
-        public async Task<IActionResult> GetByCedula(string cedula)
+
+        [HttpGet("ConsultarCliente")]
+        public async Task<IActionResult> ConsultarCliente(string cedula)
         {
             var param = new SqlParameter("@Cedula", cedula);
 

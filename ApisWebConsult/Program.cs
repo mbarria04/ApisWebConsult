@@ -1,29 +1,38 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
-using System;
+using Microsoft.OpenApi.Models;
 using System.Text;
 using ApisWebConsult.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Servicios
+// --------------------
+// Controllers
+// --------------------
 builder.Services.AddControllers();
 
+// --------------------
 // DB Context
+// --------------------
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// --------------------
+// CORS
+// --------------------
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowLocalhost",
-        policy => policy.WithOrigins("https://localhost:7105") // origen del cliente
-                        .AllowAnyHeader()
-                        .AllowAnyMethod());
+    options.AddPolicy("AllowLocalhost", policy =>
+        policy.WithOrigins("https://localhost:7105")
+              .AllowAnyHeader()
+              .AllowAnyMethod());
 });
 
-
-// JWT
+// --------------------
+// JWT Authentication
+// --------------------
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -33,33 +42,61 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateAudience = true,
             ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
+
             ValidIssuer = builder.Configuration["Jwt:Issuer"],
             ValidAudience = builder.Configuration["Jwt:Audience"],
+
             IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!)
+            ),
+
+            ClockSkew = TimeSpan.FromSeconds(30)
         };
     });
 
 builder.Services.AddAuthorization();
 
-builder.Services.AddControllers();
+// --------------------
 // Swagger
+// --------------------
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    // JWT Bearer
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Ingrese: Bearer {token}"
+    });
 
+    // API Key (solo para /api/auth/token)
+    c.AddSecurityDefinition("X-API-KEY", new OpenApiSecurityScheme
+    {
+        Name = "X-API-KEY",
+        Type = SecuritySchemeType.ApiKey,
+        In = ParameterLocation.Header,
+        Description = "Clave interna para generar token"
+    });
 
+    // ⚠️ NO agregar SecurityRequirement global
+});
+
+// --------------------
+// App
+// --------------------
 var app = builder.Build();
 
-app.UseCors("AllowLocalhost"); // habilitar la pol�tica
+app.UseCors("AllowLocalhost");
 
-// Middleware
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
-
 
 app.UseAuthentication();
 app.UseAuthorization();
